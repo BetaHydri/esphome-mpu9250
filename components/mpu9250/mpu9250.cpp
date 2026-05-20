@@ -31,6 +31,18 @@ static bool bus_read_bytes(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t 
 }
 
 void MPU9250Component::setup() {
+  // Read WHO_AM_I register (0x75) to identify the chip
+  uint8_t who_am_i = 0;
+  if (this->read_bytes(0x75, &who_am_i, 1)) {
+    ESP_LOGI("mpu9250", "WHO_AM_I register: 0x%02X — %s", who_am_i,
+             who_am_i == 0x71 ? "genuine MPU9250" :
+             who_am_i == 0x70 ? "MPU6500 (no magnetometer)" :
+             who_am_i == 0x73 ? "MPU9255" :
+             who_am_i == 0x68 ? "MPU6050" : "unknown chip");
+  } else {
+    ESP_LOGW("mpu9250", "Failed to read WHO_AM_I register — I2C communication error");
+  }
+
   // Wake up MPU9250
   this->write_byte(PWR_MGMT_1, 0x00);
   delay(100);
@@ -38,6 +50,15 @@ void MPU9250Component::setup() {
   // Enable I2C bypass to access AK8963 directly
   this->write_byte(0x37, 0x02);
   delay(10);
+
+  // Read AK8963 WHO_AM_I (0x00) — should return 0x48 if present
+  uint8_t ak_id = 0;
+  if (bus_read_bytes(this->bus_, AK8963_ADDR, 0x00, &ak_id, 1)) {
+    ESP_LOGI("mpu9250", "AK8963 WHO_AM_I: 0x%02X — %s", ak_id,
+             ak_id == 0x48 ? "AK8963 magnetometer detected" : "unexpected ID");
+  } else {
+    ESP_LOGW("mpu9250", "AK8963 not found at I2C address 0x0C — magnetometer unavailable (MPU6500 clone?)");
+  }
 
   // Set AK8963 to 16-bit, continuous measurement mode 2 (100Hz)
   bus_write_byte(this->bus_, AK8963_ADDR, AK8963_CNTL1, 0x16);
