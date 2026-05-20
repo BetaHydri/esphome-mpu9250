@@ -25,9 +25,9 @@ static bool bus_write_byte(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t 
 }
 
 // Helper: read N bytes starting at a register on an arbitrary I2C address via the bus
+// Uses write_readv for a single I2C transaction (repeated start, no stop between write and read)
 static bool bus_read_bytes(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t *data, size_t len) {
-  if (bus->write(addr, &reg, 1) != i2c::ERROR_OK) return false;
-  return bus->read(addr, data, len) == i2c::ERROR_OK;
+  return bus->write_readv(addr, &reg, 1, data, len) == i2c::ERROR_OK;
 }
 
 void MPU9250Component::setup() {
