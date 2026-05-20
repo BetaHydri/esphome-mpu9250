@@ -1,0 +1,86 @@
+#include "mpu9250.h"
+#include <cmath>
+
+namespace esphome {
+namespace mpu9250 {
+
+static const uint8_t PWR_MGMT_1 = 0x6B;
+static const uint8_t ACCEL_XOUT_H = 0x3B;
+static const uint8_t GYRO_XOUT_H = 0x43;
+
+static const uint8_t AK8963_ADDR = 0x0C;
+static const uint8_t AK8963_ST1 = 0x02;
+static const uint8_t AK8963_XOUT_L = 0x03;
+static const uint8_t AK8963_CNTL1 = 0x0A;
+
+static int16_t to_int16(uint8_t high, uint8_t low) {
+  return static_cast<int16_t>((static_cast<uint16_t>(high) << 8) | low);
+}
+
+void MPU9250Component::setup() {
+  // Wake up MPU9250
+  this->write_byte(PWR_MGMT_1, 0x00);
+  delay(100);
+
+  // Enable I2C bypass to access AK8963 directly
+  this->write_byte(0x37, 0x02);
+  delay(10);
+
+  // Set AK8963 to 16-bit, continuous measurement mode 2 (100Hz)
+  this->bus_->write_byte(AK8963_ADDR, AK8963_CNTL1, 0x16);
+  delay(10);
+}
+
+void MPU9250Component::update() {
+  uint8_t b[6];
+
+  // Read accelerometer (±2g default, 16384 LSB/g)
+  if (this->read_bytes(ACCEL_XOUT_H, b, 6) == i2c::ERROR_OK) {
+    ax_ = to_int16(b[0], b[1]) / 16384.0f;
+    ay_ = to_int16(b[2], b[3]) / 16384.0f;
+    az_ = to_int16(b[4], b[5]) / 16384.0f;
+    if (ax_s_) ax_s_->publish_state(ax_ * 9.81f);
+    if (ay_s_) ay_s_->publish_state(ay_ * 9.81f);
+    if (az_s_) az_s_->publish_state(az_ * 9.81f);
+  }
+
+  // Read gyroscope (±250 dps default, 131 LSB/dps)
+  if (this->read_bytes(GYRO_XOUT_H, b, 6) == i2c::ERROR_OK) {
+    gx_ = to_int16(b[0], b[1]) / 131.0f;
+    gy_ = to_int16(b[2], b[3]) / 131.0f;
+    gz_ = to_int16(b[4], b[5]) / 131.0f;
+    if (gx_s_) gx_s_->publish_state(gx_);
+    if (gy_s_) gy_s_->publish_state(gy_);
+    if (gz_s_) gz_s_->publish_state(gz_);
+  }
+
+  // Read magnetometer (AK8963)
+  uint8_t st;
+  if (this->bus_->read_byte(AK8963_ADDR, AK8963_ST1, &st) == i2c::ERROR_OK && (st & 0x01)) {
+    uint8_t m[7];
+    this->bus_->read_bytes(AK8963_ADDR, AK8963_XOUT_L, m, 7);
+    mx_ = to_int16(m[1], m[0]) * 0.15f;
+    my_ = to_int16(m[3], m[2]) * 0.15f;
+    mz_ = to_int16(m[5], m[4]) * 0.15f;
+
+    if (mx_s_) mx_s_->publish_state(mx_);
+    if (my_s_) my_s_->publish_state(my_);
+    if (mz_s_) mz_s_->publish_state(mz_);
+  }
+
+  // Madgwick sensor fusion for heading
+  uint32_t now = millis();
+  float dt = (now - last_update_) / 1000.0f;
+  last_update_ = now;
+
+  if (use_madgwick_ && heading_s_ && dt > 0.0f && dt < 1.0f) {
+    filter_.update(gx_, gy_, gz_, ax_, ay_, az_, mx_, my_, mz_, dt);
+    float yaw = filter_.get_yaw() + declination_;
+    if (yaw < 0.0f) yaw += 360.0f;
+    if (yaw >= 360.0f) yaw -= 360.0f;
+    heading_s_->publish_state(yaw);
+  }
+}
+
+}  // namespace mpu9250
+}  // namespace esphome

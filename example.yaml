@@ -1,0 +1,92 @@
+substitutions:
+  name: "mpu9250-sensor"
+  friendly_name: "MPU9250 IMU"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: false
+
+esp8266:
+  board: d1_mini
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/BetaHydri/esphome-mpu9250
+      ref: main
+    components: [mpu9250]
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  min_auth_mode: WPA2
+  ap:
+    ssid: "${name} Fallback"
+    password: !secret fallback_password
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+logger:
+
+i2c:
+  sda: D2
+  scl: D1
+  scan: false
+
+sensor:
+  - platform: mpu9250
+    address: 0x68
+    update_interval: 200ms
+    accel:
+      x:
+        name: "MPU9250 Accel X"
+        id: accel_x
+      y:
+        name: "MPU9250 Accel Y"
+        id: accel_y
+      z:
+        name: "MPU9250 Accel Z"
+        id: accel_z
+    gyro:
+      x:
+        name: "MPU9250 Gyro X"
+      y:
+        name: "MPU9250 Gyro Y"
+      z:
+        name: "MPU9250 Gyro Z"
+    mag:
+      x:
+        name: "MPU9250 Mag X"
+        id: mag_x
+      y:
+        name: "MPU9250 Mag Y"
+        id: mag_y
+      z:
+        name: "MPU9250 Mag Z"
+    heading:
+      name: "Compass Heading"
+    declination: 3.6   # adjust for your location: http://www.magnetic-declination.com/
+    use_madgwick: true
+
+  # Total acceleration magnitude
+  - platform: template
+    name: "Total Acceleration"
+    unit_of_measurement: "m/s²"
+    accuracy_decimals: 3
+    update_interval: 200ms
+    lambda: |-
+      if (isnan(id(accel_x).state) || isnan(id(accel_y).state) || isnan(id(accel_z).state)) {
+        return NAN;
+      }
+      return sqrtf(pow(id(accel_x).state, 2) +
+                   pow(id(accel_y).state, 2) +
+                   pow(id(accel_z).state, 2));
