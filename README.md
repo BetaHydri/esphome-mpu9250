@@ -268,5 +268,6 @@ MIT License. See [LICENSE](LICENSE).
 
 - [Madgwick AHRS algorithm](https://x-io.co.uk/open-source-imu-and-ahrs-algorithms/) by Sebastian Madgwick (now maintained as [Fusion](https://github.com/xioTechnologies/Fusion))
 - [Uspizig/esphome-mpu9250](https://github.com/Uspizig/esphome-mpu9250) — original (incomplete) component that inspired this implementation
-- [MPU-9250 Product Specification (PDF)](https://github.com/kriswiner/MPU9250/blob/master/MPU-9250%20Spec.pdf) — via kriswiner's reference collection
-- [MPU-9250 Register Map (PDF)](https://github.com/kriswiner/MPU9250/blob/master/MPU-9250%20Register%20Map.pdf) — via kriswiner's reference collection
+- [MPU-9250 Product Specification (PDF)](https://github.com/kriswiner/MPU9250/blob/master/Documents/PS-MPU-9250A-01.pdf)
+- [MPU-9250 Register Map (PDF)](https://github.com/kriswiner/MPU9250/blob/master/Documents/RM-MPU-9250A-00.pdf)
+- [AK8963 Magnetometer Datasheet (PDF)](https://github.com/kriswiner/MPU9250/blob/master/Documents/AK8963.pdf)
