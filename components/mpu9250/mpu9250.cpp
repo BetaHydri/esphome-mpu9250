@@ -21,14 +21,14 @@ static int16_t to_int16(uint8_t high, uint8_t low) {
 // Helper: write a single byte to a register on an arbitrary I2C address via the bus
 static i2c::ErrorCode bus_write_byte(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t val) {
   uint8_t buf[2] = {reg, val};
-  return bus->write(addr, buf, 2, true);
+  return bus->write(addr, buf, 2);
 }
 
 // Helper: read N bytes starting at a register on an arbitrary I2C address via the bus
 static i2c::ErrorCode bus_read_bytes(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t *data, size_t len) {
-  auto err = bus->write(addr, &reg, 1, false);
+  auto err = bus->write(addr, &reg, 1);
   if (err != i2c::ERROR_OK) return err;
-  return bus->read(addr, data, len, true);
+  return bus->read(addr, data, len);
 }
 
 void MPU9250Component::setup() {
