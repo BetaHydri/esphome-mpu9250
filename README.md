@@ -10,6 +10,7 @@ Provides accelerometer, gyroscope, magnetometer, and tilt-compensated compass he
 - **Gyroscope** (X/Y/Z) — °/s
 - **Magnetometer / AK8963** (X/Y/Z) — µT, accessed via I2C bypass mode
 - **Compass Heading** — tilt-compensated yaw via Madgwick AHRS filter
+- **Die Temperature** — internal MPU9250 die temperature in °C
 - **Magnetometer Calibration** — hard-iron calibration via button entity in Home Assistant (30-second routine)
 - **Magnetic Declination** — configurable offset for your geographic location
 - **ESPHome / Home Assistant** compatible
@@ -107,6 +108,8 @@ sensor:
         name: "MPU9250 Mag Z"
     heading:
       name: "Compass Heading"
+    temperature:
+      name: "MPU9250 Temperature"
     declination: 3.6
     use_madgwick: true
 
@@ -142,6 +145,7 @@ sensor:
 | `gyro` | schema | — | Gyroscope axes (x, y, z). Values in °/s |
 | `mag` | schema | — | Magnetometer axes (x, y, z). Values in µT |
 | `heading` | sensor | — | Tilt-compensated compass heading (0–360°) |
+| `temperature` | sensor | — | Internal die temperature in °C |
 | `use_madgwick` | bool | `true` | Enable Madgwick AHRS filter for heading |
 | `declination` | float | `0.0` | Magnetic declination in degrees for your location |
 

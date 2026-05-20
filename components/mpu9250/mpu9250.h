@@ -26,6 +26,7 @@ class MPU9250Component : public PollingComponent, public i2c::I2CDevice {
   void set_mag_z(sensor::Sensor *s) { mz_s_ = s; }
 
   void set_heading(sensor::Sensor *s) { heading_s_ = s; }
+  void set_temperature(sensor::Sensor *s) { temp_s_ = s; }
   void set_calibrate_button(button::Button *b);
   void set_use_madgwick(bool v) { use_madgwick_ = v; }
   void set_declination(float d) { declination_ = d; }
@@ -35,6 +36,7 @@ class MPU9250Component : public PollingComponent, public i2c::I2CDevice {
   sensor::Sensor *gx_s_{nullptr}, *gy_s_{nullptr}, *gz_s_{nullptr};
   sensor::Sensor *mx_s_{nullptr}, *my_s_{nullptr}, *mz_s_{nullptr};
   sensor::Sensor *heading_s_{nullptr};
+  sensor::Sensor *temp_s_{nullptr};
   button::Button *calib_btn_{nullptr};
 
   float ax_{0}, ay_{0}, az_{0};

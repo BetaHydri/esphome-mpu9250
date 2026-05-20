@@ -6,6 +6,7 @@ namespace mpu9250 {
 
 static const uint8_t PWR_MGMT_1 = 0x6B;
 static const uint8_t ACCEL_XOUT_H = 0x3B;
+static const uint8_t TEMP_OUT_H = 0x41;
 static const uint8_t GYRO_XOUT_H = 0x43;
 
 static const uint8_t AK8963_ADDR = 0x0C;
@@ -67,6 +68,15 @@ void MPU9250Component::update() {
     if (gx_s_) gx_s_->publish_state(gx_);
     if (gy_s_) gy_s_->publish_state(gy_);
     if (gz_s_) gz_s_->publish_state(gz_);
+  }
+
+  // Read temperature (TEMP_OUT_H/L at 0x41, formula: temp = raw / 333.87 + 21.0)
+  {
+    uint8_t t[2];
+    if (this->read_bytes(TEMP_OUT_H, t, 2) == i2c::ERROR_OK) {
+      float temp = to_int16(t[0], t[1]) / 333.87f + 21.0f;
+      if (temp_s_) temp_s_->publish_state(temp);
+    }
   }
 
   // Read magnetometer (AK8963)

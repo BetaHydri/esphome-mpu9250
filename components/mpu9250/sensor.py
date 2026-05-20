@@ -3,10 +3,14 @@ import esphome.config_validation as cv
 from esphome.components import sensor
 from esphome.const import (
     CONF_ID,
+    CONF_TEMPERATURE,
+    UNIT_CELSIUS,
     UNIT_DEGREE_PER_SECOND,
     UNIT_METER_PER_SECOND_SQUARED,
     UNIT_MICROTESLA,
     UNIT_DEGREES,
+    DEVICE_CLASS_TEMPERATURE,
+    STATE_CLASS_MEASUREMENT,
 )
 
 from . import MPU9250Component
@@ -40,6 +44,12 @@ CONFIG_SCHEMA = cv.Schema(
             icon="mdi:compass",
             accuracy_decimals=1,
         ),
+        cv.Optional(CONF_TEMPERATURE): sensor.sensor_schema(
+            unit_of_measurement=UNIT_CELSIUS,
+            device_class=DEVICE_CLASS_TEMPERATURE,
+            state_class=STATE_CLASS_MEASUREMENT,
+            accuracy_decimals=1,
+        ),
         cv.Optional(CONF_USE_MADGWICK, default=True): cv.boolean,
         cv.Optional(CONF_DECLINATION, default=0.0): cv.float_,
     }
@@ -67,6 +77,10 @@ async def to_code(config):
     if CONF_HEADING in config:
         s = await sensor.new_sensor(config[CONF_HEADING])
         cg.add(var.set_heading(s))
+
+    if CONF_TEMPERATURE in config:
+        s = await sensor.new_sensor(config[CONF_TEMPERATURE])
+        cg.add(var.set_temperature(s))
 
     cg.add(var.set_use_madgwick(config[CONF_USE_MADGWICK]))
     cg.add(var.set_declination(config[CONF_DECLINATION]))

@@ -81,6 +81,8 @@ sensor:
         name: "MPU9250 Mag Z"
     heading:
       name: "Compass Heading"
+    temperature:
+      name: "MPU9250 Temperature"
     declination: 3.6   # adjust for your location: http://www.magnetic-declination.com/
     use_madgwick: true
 
@@ -97,3 +99,8 @@ sensor:
       return sqrtf(pow(id(accel_x).state, 2) +
                    pow(id(accel_y).state, 2) +
                    pow(id(accel_z).state, 2));
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
