@@ -218,8 +218,8 @@ The raw accelerometer values from the MPU9250 can be used to compute vehicle til
 ```
 ESPHome (MPU9250)          Home Assistant
 ┌──────────────┐    ┌─────────────────┐    ┌──────────────────┐    ┌───────────┐
-│ Accel X/Y/Z  │───>│ Template Sensor  │───>│  Filter Sensor   │───>│ Dashboard │
-│   (m/s²)     │    │ asin → degrees   │    │ lowpass smoothed │    │ Van Tilt  │
+│ Accel X/Y/Z  │───>│ Template Sensor │───>│  Filter Sensor   │───>│ Dashboard │
+│   (m/s²)     │    │ asin → degrees  │    │ lowpass smoothed │    │ Van Tilt  │
 └──────────────┘    └─────────────────┘    └──────────────────┘    └───────────┘
 ```
 
