@@ -42,10 +42,17 @@ i2c:
   scl: D1
   scan: false
 
+mpu9250:
+  address: 0x68
+  update_interval: 200ms
+
+button:
+  - platform: mpu9250
+    calibrate:
+      name: "MPU9250 Calibrate Magnetometer"
+
 sensor:
   - platform: mpu9250
-    address: 0x68
-    update_interval: 200ms
     accel:
       x:
         name: "MPU9250 Accel X"

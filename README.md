@@ -10,6 +10,7 @@ Provides accelerometer, gyroscope, magnetometer, and tilt-compensated compass he
 - **Gyroscope** (X/Y/Z) — °/s
 - **Magnetometer / AK8963** (X/Y/Z) — µT, accessed via I2C bypass mode
 - **Compass Heading** — tilt-compensated yaw via Madgwick AHRS filter
+- **Magnetometer Calibration** — hard-iron calibration via button entity in Home Assistant (30-second routine)
 - **Magnetic Declination** — configurable offset for your geographic location
 - **ESPHome / Home Assistant** compatible
 - Works on **ESP8266** (D1 Mini) and **ESP32**
@@ -48,6 +49,8 @@ i2c:
   sda: D2
   scl: D1
 
+mpu9250:
+
 sensor:
   - platform: mpu9250
     accel:
@@ -67,10 +70,17 @@ i2c:
   scl: D1
   scan: false
 
+mpu9250:
+  address: 0x68
+  update_interval: 200ms
+
+button:
+  - platform: mpu9250
+    calibrate:
+      name: "MPU9250 Calibrate Magnetometer"
+
 sensor:
   - platform: mpu9250
-    address: 0x68
-    update_interval: 200ms
     accel:
       x:
         name: "MPU9250 Accel X"
@@ -117,10 +127,17 @@ sensor:
 
 ### Configuration Variables
 
+#### Hub Component (`mpu9250:`)
+
 | Variable | Type | Default | Description |
 |---|---|---|---|
 | `address` | int | `0x68` | I2C address of the MPU9250 |
 | `update_interval` | time | `100ms` | How often to read the sensor |
+
+#### Sensor Platform (`sensor: platform: mpu9250`)
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
 | `accel` | schema | — | Accelerometer axes (x, y, z). Values in m/s² |
 | `gyro` | schema | — | Gyroscope axes (x, y, z). Values in °/s |
 | `mag` | schema | — | Magnetometer axes (x, y, z). Values in µT |
@@ -129,6 +146,23 @@ sensor:
 | `declination` | float | `0.0` | Magnetic declination in degrees for your location |
 
 All axis groups (`accel`, `gyro`, `mag`) and `heading` are optional — include only what you need.
+
+#### Button Platform (`button: platform: mpu9250`)
+
+| Variable | Type | Description |
+|---|---|---|
+| `calibrate` | button | **Required.** Triggers a 30-second magnetometer hard-iron calibration |
+
+**How calibration works:**
+
+1. Press the calibration button in Home Assistant
+2. Slowly rotate the sensor around all three axes for 30 seconds
+3. The component tracks min/max magnetic field values on each axis
+4. After 30 seconds, it computes midpoint offsets: `offset = (max + min) / 2`
+5. All subsequent magnetometer readings are corrected by subtracting these offsets
+6. Offsets are logged: check ESPHome logs for the computed values
+
+> **Note:** Calibration offsets are stored in RAM and lost on reboot. For persistent calibration, note the logged offset values and apply them manually (persistent storage is a planned improvement).
 
 ### Magnetic Declination
 
@@ -164,23 +198,9 @@ The [Madgwick AHRS algorithm](https://x-io.co.uk/open-source-imu-and-ahrs-algori
 
 ## Known Limitations
 
-### Magnetometer Calibration (Not Yet Implemented)
+### Calibration Offsets Not Persistent
 
-The magnetometer readings are affected by hard-iron distortion from nearby ferromagnetic materials (vehicle chassis, metal enclosures, etc.). Without calibration, the compass heading may have a constant offset or non-uniform error.
-
-**What's needed to add calibration:**
-
-A `button` platform entity that triggers a 30-second hard-iron calibration routine:
-
-1. **`button.py`** — A new platform file in `components/mpu9250/` that registers a `button.mpu9250` platform. ESPHome requires multi-platform components to have separate `<platform>.py` files for each platform they provide. The button schema should reference the parent `MPU9250Component` via `cv.use_id()`.
-
-2. **`__init__.py` changes** — Must export the shared `mpu9250_ns` namespace and `MPU9250Component` class so both `sensor.py` and `button.py` can import them. Also needs a `CONFIG_SCHEMA` with `cv.Schema({})` and `async def to_code()` to register as a proper hub component.
-
-3. **C++ changes** — Re-add `set_calibrate_button()`, `start_calibration()`, and the calibration state fields (`mag_min_`, `mag_max_`, `mag_offset_`, `calibrating_`, `calib_start_`) to `mpu9250.h` and `mpu9250.cpp`. The calibration routine collects min/max magnetometer values over 30 seconds, then computes the midpoint offset `(max + min) / 2` for each axis.
-
-4. **Persistent offsets** — Ideally, calibration offsets should be saved to flash (via ESPHome `globals` or `Preferences`) so they survive reboots.
-
-Contributions welcome — see [Contributing](#contributing).
+Magnetometer calibration offsets are stored in RAM. They are lost on reboot. To work around this, run calibration, note the offset values from the ESPHome log output, and consider using ESPHome `globals` with `restore_value: true` to persist them. Persistent storage is a planned improvement.
 
 ### ESP8266 Memory
 
@@ -220,8 +240,9 @@ Tested with ESPHome **2026.4.5**.
 esphome-mpu9250/
 ├── components/
 │   └── mpu9250/
-│       ├── __init__.py      # Component registration
-│       ├── sensor.py        # ESPHome sensor platform (YAML schema + codegen)
+│       ├── __init__.py      # Hub component (registers MPU9250Component)
+│       ├── sensor.py        # Sensor platform (accel/gyro/mag/heading)
+│       ├── button.py        # Button platform (magnetometer calibration)
 │       ├── mpu9250.h        # C++ component header
 │       ├── mpu9250.cpp      # C++ I2C driver (MPU6500 + AK8963)
 │       └── madgwick.h       # Madgwick AHRS filter (header-only)

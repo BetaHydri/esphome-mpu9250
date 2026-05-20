@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import i2c, sensor
+from esphome.components import sensor
 from esphome.const import (
     CONF_ID,
     UNIT_DEGREE_PER_SECOND,
@@ -9,12 +9,7 @@ from esphome.const import (
     UNIT_DEGREES,
 )
 
-DEPENDENCIES = ["i2c"]
-
-mpu9250_ns = cg.esphome_ns.namespace("mpu9250")
-MPU9250Component = mpu9250_ns.class_(
-    "MPU9250Component", cg.PollingComponent, i2c.I2CDevice
-)
+from . import MPU9250Component
 
 CONF_ACCEL = "accel"
 CONF_GYRO = "gyro"
@@ -34,31 +29,25 @@ def vec3(unit):
     )
 
 
-CONFIG_SCHEMA = (
-    cv.Schema(
-        {
-            cv.GenerateID(): cv.declare_id(MPU9250Component),
-            cv.Optional(CONF_ACCEL): vec3(UNIT_METER_PER_SECOND_SQUARED),
-            cv.Optional(CONF_GYRO): vec3(UNIT_DEGREE_PER_SECOND),
-            cv.Optional(CONF_MAG): vec3(UNIT_MICROTESLA),
-            cv.Optional(CONF_HEADING): sensor.sensor_schema(
-                unit_of_measurement=UNIT_DEGREES,
-                icon="mdi:compass",
-                accuracy_decimals=1,
-            ),
-            cv.Optional(CONF_USE_MADGWICK, default=True): cv.boolean,
-            cv.Optional(CONF_DECLINATION, default=0.0): cv.float_,
-        }
-    )
-    .extend(i2c.i2c_device_schema(0x68))
-    .extend(cv.polling_component_schema("100ms"))
+CONFIG_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.use_id(MPU9250Component),
+        cv.Optional(CONF_ACCEL): vec3(UNIT_METER_PER_SECOND_SQUARED),
+        cv.Optional(CONF_GYRO): vec3(UNIT_DEGREE_PER_SECOND),
+        cv.Optional(CONF_MAG): vec3(UNIT_MICROTESLA),
+        cv.Optional(CONF_HEADING): sensor.sensor_schema(
+            unit_of_measurement=UNIT_DEGREES,
+            icon="mdi:compass",
+            accuracy_decimals=1,
+        ),
+        cv.Optional(CONF_USE_MADGWICK, default=True): cv.boolean,
+        cv.Optional(CONF_DECLINATION, default=0.0): cv.float_,
+    }
 )
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
-    await i2c.register_i2c_device(var, config)
+    var = await cg.get_variable(config[CONF_ID])
 
     if CONF_ACCEL in config:
         for a in "xyz":
