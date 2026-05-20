@@ -56,5 +56,10 @@ class MPU9250Component : public PollingComponent, public i2c::I2CDevice {
   void start_calibration();
 };
 
+class MPU9250CalibrateButton : public button::Button {
+ public:
+  void press_action() override {}
+};
+
 }  // namespace mpu9250
 }  // namespace esphome
