@@ -18,6 +18,19 @@ static int16_t to_int16(uint8_t high, uint8_t low) {
   return static_cast<int16_t>((static_cast<uint16_t>(high) << 8) | low);
 }
 
+// Helper: write a single byte to a register on an arbitrary I2C address via the bus
+static i2c::ErrorCode bus_write_byte(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t val) {
+  uint8_t buf[2] = {reg, val};
+  return bus->write(addr, buf, 2, true);
+}
+
+// Helper: read N bytes starting at a register on an arbitrary I2C address via the bus
+static i2c::ErrorCode bus_read_bytes(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t *data, size_t len) {
+  auto err = bus->write(addr, &reg, 1, false);
+  if (err != i2c::ERROR_OK) return err;
+  return bus->read(addr, data, len, true);
+}
+
 void MPU9250Component::setup() {
   // Wake up MPU9250
   this->write_byte(PWR_MGMT_1, 0x00);
@@ -28,7 +41,7 @@ void MPU9250Component::setup() {
   delay(10);
 
   // Set AK8963 to 16-bit, continuous measurement mode 2 (100Hz)
-  this->bus_->write_byte(AK8963_ADDR, AK8963_CNTL1, 0x16);
+  bus_write_byte(this->bus_, AK8963_ADDR, AK8963_CNTL1, 0x16);
   delay(10);
 }
 
@@ -81,9 +94,9 @@ void MPU9250Component::update() {
 
   // Read magnetometer (AK8963)
   uint8_t st;
-  if (this->bus_->read_byte(AK8963_ADDR, AK8963_ST1, &st) == i2c::ERROR_OK && (st & 0x01)) {
+  if (bus_read_bytes(this->bus_, AK8963_ADDR, AK8963_ST1, &st, 1) == i2c::ERROR_OK && (st & 0x01)) {
     uint8_t m[7];
-    this->bus_->read_bytes(AK8963_ADDR, AK8963_XOUT_L, m, 7);
+    bus_read_bytes(this->bus_, AK8963_ADDR, AK8963_XOUT_L, m, 7);
     mx_ = to_int16(m[1], m[0]) * 0.15f;
     my_ = to_int16(m[3], m[2]) * 0.15f;
     mz_ = to_int16(m[5], m[4]) * 0.15f;
