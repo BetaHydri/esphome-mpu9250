@@ -19,16 +19,15 @@ static int16_t to_int16(uint8_t high, uint8_t low) {
 }
 
 // Helper: write a single byte to a register on an arbitrary I2C address via the bus
-static i2c::ErrorCode bus_write_byte(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t val) {
+static bool bus_write_byte(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t val) {
   uint8_t buf[2] = {reg, val};
-  return bus->write(addr, buf, 2);
+  return bus->write(addr, buf, 2) == i2c::ERROR_OK;
 }
 
 // Helper: read N bytes starting at a register on an arbitrary I2C address via the bus
-static i2c::ErrorCode bus_read_bytes(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t *data, size_t len) {
-  auto err = bus->write(addr, &reg, 1);
-  if (err != i2c::ERROR_OK) return err;
-  return bus->read(addr, data, len);
+static bool bus_read_bytes(i2c::I2CBus *bus, uint8_t addr, uint8_t reg, uint8_t *data, size_t len) {
+  if (bus->write(addr, &reg, 1) != i2c::ERROR_OK) return false;
+  return bus->read(addr, data, len) == i2c::ERROR_OK;
 }
 
 void MPU9250Component::setup() {
@@ -64,7 +63,7 @@ void MPU9250Component::update() {
   uint8_t b[6];
 
   // Read accelerometer (±2g default, 16384 LSB/g)
-  if (this->read_bytes(ACCEL_XOUT_H, b, 6) == i2c::ERROR_OK) {
+  if (this->read_bytes(ACCEL_XOUT_H, b, 6)) {
     ax_ = to_int16(b[0], b[1]) / 16384.0f;
     ay_ = to_int16(b[2], b[3]) / 16384.0f;
     az_ = to_int16(b[4], b[5]) / 16384.0f;
@@ -74,7 +73,7 @@ void MPU9250Component::update() {
   }
 
   // Read gyroscope (±250 dps default, 131 LSB/dps)
-  if (this->read_bytes(GYRO_XOUT_H, b, 6) == i2c::ERROR_OK) {
+  if (this->read_bytes(GYRO_XOUT_H, b, 6)) {
     gx_ = to_int16(b[0], b[1]) / 131.0f;
     gy_ = to_int16(b[2], b[3]) / 131.0f;
     gz_ = to_int16(b[4], b[5]) / 131.0f;
@@ -86,7 +85,7 @@ void MPU9250Component::update() {
   // Read temperature (TEMP_OUT_H/L at 0x41, formula: temp = raw / 333.87 + 21.0)
   {
     uint8_t t[2];
-    if (this->read_bytes(TEMP_OUT_H, t, 2) == i2c::ERROR_OK) {
+    if (this->read_bytes(TEMP_OUT_H, t, 2)) {
       float temp = to_int16(t[0], t[1]) / 333.87f + 21.0f;
       if (temp_s_) temp_s_->publish_state(temp);
     }
@@ -94,7 +93,7 @@ void MPU9250Component::update() {
 
   // Read magnetometer (AK8963)
   uint8_t st;
-  if (bus_read_bytes(this->bus_, AK8963_ADDR, AK8963_ST1, &st, 1) == i2c::ERROR_OK && (st & 0x01)) {
+  if (bus_read_bytes(this->bus_, AK8963_ADDR, AK8963_ST1, &st, 1) && (st & 0x01)) {
     uint8_t m[7];
     bus_read_bytes(this->bus_, AK8963_ADDR, AK8963_XOUT_L, m, 7);
     mx_ = to_int16(m[1], m[0]) * 0.15f;
