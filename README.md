@@ -202,6 +202,127 @@ The [Madgwick AHRS algorithm](https://x-io.co.uk/open-source-imu-and-ahrs-algori
 
 ## Known Limitations
 
+### Vehicle Tilt Monitoring with Home Assistant
+
+The raw accelerometer values from the MPU9250 can be used to compute vehicle tilt angles for RV/camper leveling. This requires two additional layers in Home Assistant: **template sensors** that convert raw acceleration to degrees, and **filter sensors** that smooth the output for stable dashboard display.
+
+#### Why this is useful
+
+- Raw accelerometer values (m/s²) are noisy and update at 200 ms — too jittery for a dashboard
+- Converting to tilt angle via `asin(accel / 9.81)` gives human-readable degrees
+- A low-pass filter removes vibration noise, producing a stable reading (e.g., `-1.4°`)
+- The result is suitable for an RV leveling card showing front-back and left-right tilt
+
+#### Processing chain
+
+```
+ESPHome (MPU9250)          Home Assistant
+┌──────────────┐    ┌─────────────────┐    ┌──────────────────┐    ┌───────────┐
+│ Accel X/Y/Z  │───>│ Template Sensor  │───>│  Filter Sensor   │───>│ Dashboard │
+│   (m/s²)     │    │ asin → degrees   │    │ lowpass smoothed │    │ Van Tilt  │
+└──────────────┘    └─────────────────┘    └──────────────────┘    └───────────┘
+```
+
+#### Step 1: Create template sensors (HA UI)
+
+Go to **Settings → Devices & Services → Helpers → Create Helper → Template → Template a sensor**.
+
+**Hymer Gyro X Angle** (front-back tilt):
+
+- **Name**: `Hymer Gyro X Angle`
+- **State template**:
+
+  ```jinja2
+  {{ ((asin((states("sensor.hymer_gyro_mpu9250_mpu9250_accel_x") | float) / 9.81) * 180 / pi) - 0.7) * -1 }}
+  ```
+
+- **Unit of measurement**: `°`
+- **State class**: `measurement_angle`
+
+**Hymer Gyro Y Angle** (left-right tilt):
+
+- **Name**: `Hymer Gyro Y Angle`
+- **State template**:
+
+  ```jinja2
+  {{ ((asin((states("sensor.hymer_gyro_mpu9250_mpu9250_accel_y") | float) / 9.81) * 180 / pi) - 3.9) }}
+  ```
+
+- **Unit of measurement**: `°`
+- **State class**: `measurement_angle`
+
+> **Note:** The offset values (`- 0.7` for X, `- 3.9` for Y) compensate for the
+> sensor's mounting angle in your specific vehicle. You will need to calibrate these
+> for your own installation: park on a known level surface and note the raw angle
+> values — those are your offsets.
+
+#### Step 2: Create filter sensors (HA UI)
+
+Go to **Settings → Devices & Services → Helpers → Create Helper → Filter**.
+
+Create two filter sensors with these settings:
+
+| Setting | Filtered Hymer Gyro X Angle | Filtered Hymer Gyro Y Angle |
+|---|---|---|
+| **Source entity** | `sensor.hymer_gyro_x_angle` | `sensor.hymer_gyro_y_angle` |
+| **Filter** | Low-pass (Tiefpass) | Low-pass (Tiefpass) |
+| **Window size** | 1 | 1 |
+| **Time constant** | 5 | 5 |
+| **Precision** | 1 | 1 |
+
+The low-pass filter with time constant 5 smooths out vibration-induced jitter while
+still responding to actual tilt changes within a few seconds.
+
+#### Step 3: Use in a dashboard
+
+Use the filtered sensors in a Lovelace card for your RV leveling display:
+
+- `sensor.filtered_hymer_gyro_x_angle` — front/back tilt
+- `sensor.filtered_hymer_gyro_y_angle` — left/right tilt
+
+#### YAML equivalent (alternative to UI)
+
+If you prefer YAML over the UI, add this to your `configuration.yaml`:
+
+```yaml
+template:
+  - sensor:
+      - name: "Hymer Gyro X Angle"
+        unique_id: hymer_gyro_x_angle
+        unit_of_measurement: "°"
+        state_class: measurement_angle
+        state: >
+          {{ ((asin((states("sensor.hymer_gyro_mpu9250_mpu9250_accel_x")
+               | float) / 9.81) * 180 / pi) - 0.7) * -1 }}
+
+      - name: "Hymer Gyro Y Angle"
+        unique_id: hymer_gyro_y_angle
+        unit_of_measurement: "°"
+        state_class: measurement_angle
+        state: >
+          {{ ((asin((states("sensor.hymer_gyro_mpu9250_mpu9250_accel_y")
+               | float) / 9.81) * 180 / pi) - 3.9) }}
+
+sensor:
+  - platform: filter
+    name: "Filtered Hymer Gyro X Angle"
+    unique_id: filtered_hymer_gyro_x_angle
+    entity_id: sensor.hymer_gyro_x_angle
+    filters:
+      - filter: lowpass
+        time_constant: 5
+        precision: 1
+
+  - platform: filter
+    name: "Filtered Hymer Gyro Y Angle"
+    unique_id: filtered_hymer_gyro_y_angle
+    entity_id: sensor.hymer_gyro_y_angle
+    filters:
+      - filter: lowpass
+        time_constant: 5
+        precision: 1
+```
+
 ### Calibration Offsets Not Persistent
 
 Magnetometer calibration offsets are stored in RAM. They are lost on reboot. To work around this, run calibration, note the offset values from the ESPHome log output, and consider using ESPHome `globals` with `restore_value: true` to persist them. Persistent storage is a planned improvement.
@@ -259,10 +380,8 @@ esphome-mpu9250/
 
 Contributions are welcome. Priority areas:
 
-1. **Magnetometer calibration button** — see [Known Limitations](#magnetometer-calibration-not-yet-implemented)
-2. **Configurable sensor ranges** — expose accel (±2/4/8/16g) and gyro (±250/500/1000/2000 °/s) range selection
-3. **Temperature sensor** — the MPU6500 has an on-die temperature sensor (register `0x41`)
-4. **Persistent calibration** — store magnetometer offsets in flash
+1. **Configurable sensor ranges** — expose accel (±2/4/8/16g) and gyro (±250/500/1000/2000 °/s) range selection
+2. **Persistent calibration** — store magnetometer offsets in flash
 
 ## License
 
