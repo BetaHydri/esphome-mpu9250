@@ -348,7 +348,15 @@ use_madgwick: false
 
 ### MPU9250 Discontinuation
 
-The MPU9250 has been discontinued by InvenSense/TDK. Many modules sold today are clones or counterfeits. Genuine modules should return device ID `0x71` (WHO_AM_I register `0x75`). If you get `0x70` or other values, the magnetometer may not work.
+The MPU9250 has been discontinued by InvenSense/TDK. Many modules sold
+today are clones or counterfeits. Use boot logs to verify IDs:
+
+- `WHO_AM_I 0x71` = MPU9250 detected
+- `WHO_AM_I 0x70` = MPU6500 detected (no internal magnetometer path)
+- `AK8963 WHO_AM_I 0x48` = magnetometer present/visible on I2C bypass
+
+If IDs differ from the values above, magnetometer readings may stay
+unavailable.
 
 ## Compatibility
 
