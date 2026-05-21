@@ -6,6 +6,8 @@ namespace esphome
   namespace mpu9250
   {
 
+    static const char *const TAG = "mpu9250";
+
     static const uint8_t PWR_MGMT_1 = 0x6B;
     static const uint8_t ACCEL_XOUT_H = 0x3B;
     static const uint8_t TEMP_OUT_H = 0x41;
