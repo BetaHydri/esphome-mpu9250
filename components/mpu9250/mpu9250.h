@@ -15,6 +15,7 @@ namespace esphome
     public:
       void setup() override;
       void update() override;
+      void dump_config() override;
 
       void set_accel_x(sensor::Sensor *s) { ax_s_ = s; }
       void set_accel_y(sensor::Sensor *s) { ay_s_ = s; }
@@ -55,6 +56,12 @@ namespace esphome
 
       Madgwick filter_;
       uint32_t last_update_{0};
+
+      // WHO_AM_I identification (read in setup, logged in dump_config)
+      uint8_t who_am_i_{0};
+      uint8_t ak_who_am_i_{0};
+      bool who_am_i_ok_{false};
+      bool ak_who_am_i_ok_{false};
 
       void start_calibration();
     };

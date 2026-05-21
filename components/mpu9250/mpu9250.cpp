@@ -37,20 +37,8 @@ namespace esphome
 
     void MPU9250Component::setup()
     {
-      // Read WHO_AM_I register (0x75) to identify the chip
-      uint8_t who_am_i = 0;
-      if (this->read_bytes(0x75, &who_am_i, 1))
-      {
-        ESP_LOGI("mpu9250", "WHO_AM_I register: 0x%02X — %s", who_am_i,
-                 who_am_i == 0x71 ? "genuine MPU9250" : who_am_i == 0x70 ? "MPU6500 (no magnetometer)"
-                                                    : who_am_i == 0x73   ? "MPU9255"
-                                                    : who_am_i == 0x68   ? "MPU6050"
-                                                                         : "unknown chip");
-      }
-      else
-      {
-        ESP_LOGW("mpu9250", "Failed to read WHO_AM_I register — I2C communication error");
-      }
+      // Read WHO_AM_I register (0x75) — stored for dump_config()
+      who_am_i_ok_ = this->read_bytes(0x75, &who_am_i_, 1);
 
       // Wake up MPU9250
       this->write_byte(PWR_MGMT_1, 0x00);
@@ -61,20 +49,42 @@ namespace esphome
       delay(10);
 
       // Read AK8963 WHO_AM_I (0x00) — should return 0x48 if present
-      uint8_t ak_id = 0;
-      if (bus_read_bytes(this->bus_, AK8963_ADDR, 0x00, &ak_id, 1))
-      {
-        ESP_LOGI("mpu9250", "AK8963 WHO_AM_I: 0x%02X — %s", ak_id,
-                 ak_id == 0x48 ? "AK8963 magnetometer detected" : "unexpected ID");
-      }
-      else
-      {
-        ESP_LOGW("mpu9250", "AK8963 not found at I2C address 0x0C — magnetometer unavailable (MPU6500 clone?)");
-      }
+      ak_who_am_i_ok_ = bus_read_bytes(this->bus_, AK8963_ADDR, 0x00, &ak_who_am_i_, 1);
 
       // Set AK8963 to 16-bit, continuous measurement mode 2 (100Hz)
       bus_write_byte(this->bus_, AK8963_ADDR, AK8963_CNTL1, 0x16);
       delay(10);
+    }
+
+    void MPU9250Component::dump_config()
+    {
+      ESP_LOGCONFIG("mpu9250", "MPU9250:");
+      LOG_I2C_DEVICE(this);
+      if (who_am_i_ok_)
+      {
+        const char *id_name =
+            who_am_i_ == 0x71   ? "genuine MPU9250"
+            : who_am_i_ == 0x70 ? "MPU6500 (no magnetometer)"
+            : who_am_i_ == 0x73 ? "MPU9255"
+            : who_am_i_ == 0x68 ? "MPU6050"
+                                : "unknown chip";
+        ESP_LOGCONFIG("mpu9250", "  WHO_AM_I (0x75): 0x%02X — %s", who_am_i_, id_name);
+      }
+      else
+      {
+        ESP_LOGCONFIG("mpu9250", "  WHO_AM_I (0x75): READ FAILED — I2C communication error");
+      }
+      if (ak_who_am_i_ok_)
+      {
+        ESP_LOGCONFIG("mpu9250", "  AK8963 WHO_AM_I (0x0C/0x00): 0x%02X — %s", ak_who_am_i_,
+                      ak_who_am_i_ == 0x48 ? "AK8963 magnetometer detected" : "unexpected ID");
+      }
+      else
+      {
+        ESP_LOGCONFIG("mpu9250", "  AK8963 WHO_AM_I (0x0C/0x00): READ FAILED — magnetometer unreachable");
+      }
+      ESP_LOGCONFIG("mpu9250", "  Madgwick filter: %s", use_madgwick_ ? "ENABLED" : "DISABLED");
+      ESP_LOGCONFIG("mpu9250", "  Magnetic declination: %.2f°", declination_);
     }
 
     void MPU9250Component::set_calibrate_button(button::Button *b)
